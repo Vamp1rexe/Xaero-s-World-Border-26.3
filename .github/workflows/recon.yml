@@ -1,0 +1,32 @@
+name: recon
+on: workflow_dispatch
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - name: Versions
+        run: |
+          set -x
+          curl -s "https://meta.fabricmc.net/v2/versions/game" | python3 -c "import sys,json;print([v['version'] for v in json.load(sys.stdin)][:8])"
+          curl -s "https://meta.fabricmc.net/v2/versions/loader" | python3 -c "import sys,json;print([v['version'] for v in json.load(sys.stdin)][:4])"
+          curl -s "https://maven.fabricmc.net/net/fabricmc/fabric-loom/maven-metadata.xml" | grep -E "<(latest|release)>"
+          curl -s "https://maven.fabricmc.net/net/fabricmc/fabric-loom-remap/maven-metadata.xml" | grep -E "<(latest|release)>" || true
+          curl -s 'https://api.modrinth.com/v2/project/fabric-api/version?game_versions=%5B%2226.3%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "import sys,json;print([(v['version_number'],v['game_versions']) for v in json.load(sys.stdin)][:3])"
+          curl -s 'https://api.modrinth.com/v2/project/xaeros-world-map/version?game_versions=%5B%2226.3%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "
+          import sys,json
+          for v in json.load(sys.stdin)[:3]:
+              print(v['version_number'],[f['url'] for f in v['files']],v['dependencies'])"
+      - name: Xaero API dump
+        run: |
+          mkdir x && cd x
+          URL=$(curl -s 'https://api.modrinth.com/v2/project/xaeros-world-map/version?game_versions=%5B%2226.3%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['files'][0]['url'])")
+          curl -sL -o xwm.jar "$URL"; unzip -q xwm.jar -d u
+          cat u/fabric.mod.json | head -60
+          find u -path '*xaero/map/element*' -name '*.class' | sort
+          for c in MapElementRenderer MapElementReader MapElementRenderProvider MapElementRenderHandler; do javap -p -cp u xaero.map.element.$c; done
+          for c in $(find u -path '*xaero/map/element/render*' -name '*.class' | sed 's|u/||;s|\.class||;s|/|.|g'); do javap -p -cp u $c; done
+          javap -p -cp u xaero.map.WorldMap | grep -iE "mapElementRenderHandler|loaded"
