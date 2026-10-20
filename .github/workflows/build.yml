@@ -1,0 +1,50 @@
+name: build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: current
+      - name: Fetch Xaero's World Map (compile-only)
+        run: |
+          mkdir -p libs /tmp/out /tmp/x
+          URL=$(curl -s 'https://api.modrinth.com/v2/project/xaeros-world-map/version?game_versions=%5B%2226.3%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['files'][0]['url'])")
+          curl -sL -o libs/xaeroworldmap.jar "$URL"
+          unzip -q -o libs/xaeroworldmap.jar 'META-INF/jars/*' -d /tmp/x
+          cp /tmp/x/META-INF/jars/xaerolib*.jar libs/
+          ls -la libs
+      - name: Build
+        continue-on-error: true
+        id: build
+        run: |
+          set -o pipefail
+          gradle build --stacktrace 2>&1 | tee /tmp/out/build.txt
+      - name: Collect jars
+        if: always()
+        run: |
+          cp build/libs/*.jar /tmp/out/ 2>/dev/null || true
+          rm -f /tmp/out/*-sources.jar
+          ls -la /tmp/out
+      - name: Publish output
+        if: always()
+        run: |
+          cd /tmp/out
+          git init -q -b ci-output
+          git config user.name ci; git config user.email ci@example.com
+          git add -A; git commit -q -m "build output"
+          git push -f https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git ci-output
+      - name: Fail if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
