@@ -34,9 +34,11 @@ jobs:
           curl -sL -o xwm.jar "$URL"; unzip -q xwm.jar -d u
           cat u/fabric.mod.json | head -60
           find u -path '*xaero/map/element*' -name '*.class' | sort
-          for c in MapElementRenderer MapElementReader MapElementRenderProvider MapElementRenderHandler; do javap -p -cp u xaero.map.element.$c; done
-          for c in $(find u -path '*xaero/map/element/render*' -name '*.class' | sed 's|u/||;s|\.class||;s|/|.|g'); do javap -p -cp u $c; done
-          javap -p -cp u xaero.map.WorldMap | grep -iE "mapElementRenderHandler|loaded"
+          set +e
+          for c in $(find u -path '*xaero/map/element/*' -name '*.class' | sed 's|u/||;s|\.class||;s|/|.|g'); do echo "##### $c"; javap -p -cp u $c; done
+          echo "##### WorldMap"; javap -p -cp u xaero.map.WorldMap | grep -iE "mapElementRenderHandler|loaded"
+          echo "##### Mixin/Config"; ls u; ls u/xaero/map | head -80
+          echo "##### Fabric API/MC refs of MapElementGraphics"; javap -p -c -cp u xaero.map.element.MapElementGraphics | grep -E "invoke|getstatic" | grep -oE "(Method|Field|InterfaceMethod) [^ ]+" | sort -u | head -80
       - name: Publish output
         if: always()
         run: |
