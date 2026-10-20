@@ -31,6 +31,19 @@ jobs:
         run: |
           set -o pipefail
           gradle build 2>&1 | tee /tmp/out/build.txt
+      - name: Server smoke test
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          mkdir -p run && echo "eula=true" > run/eula.txt
+          printf 'online-mode=false\nlevel-type=minecraft\\:flat\n' > run/server.properties
+          timeout 240 gradle runServer --no-daemon > /tmp/out/server.txt 2>&1 &
+          for i in $(seq 1 60); do sleep 4; grep -qE 'Done \(|FAILED|Exception' /tmp/out/server.txt && break; done
+          sleep 5
+          pkill -f KnotServer || true
+          pkill -f 'gradle' || true
+          sleep 3
+          grep -nE 'xaeroworldborder|Done \(|ERROR|Exception' /tmp/out/server.txt | head -30
       - name: Collect jars
         if: always()
         run: |
