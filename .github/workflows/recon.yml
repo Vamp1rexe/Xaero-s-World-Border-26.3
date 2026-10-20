@@ -1,5 +1,7 @@
 name: recon
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   recon:
     runs-on: ubuntu-latest
@@ -9,7 +11,10 @@ jobs:
           distribution: temurin
           java-version: 25
       - name: Versions
+        continue-on-error: true
         run: |
+          mkdir -p /tmp/out
+          exec > >(tee /tmp/out/versions.txt) 2>&1
           set -x
           curl -s "https://meta.fabricmc.net/v2/versions/game" | python3 -c "import sys,json;print([v['version'] for v in json.load(sys.stdin)][:8])"
           curl -s "https://meta.fabricmc.net/v2/versions/loader" | python3 -c "import sys,json;print([v['version'] for v in json.load(sys.stdin)][:4])"
@@ -21,7 +26,9 @@ jobs:
           for v in json.load(sys.stdin)[:3]:
               print(v['version_number'],[f['url'] for f in v['files']],v['dependencies'])"
       - name: Xaero API dump
+        continue-on-error: true
         run: |
+          exec > >(tee /tmp/out/xaero.txt) 2>&1
           mkdir x && cd x
           URL=$(curl -s 'https://api.modrinth.com/v2/project/xaeros-world-map/version?game_versions=%5B%2226.3%22%5D&loaders=%5B%22fabric%22%5D' | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['files'][0]['url'])")
           curl -sL -o xwm.jar "$URL"; unzip -q xwm.jar -d u
@@ -30,3 +37,12 @@ jobs:
           for c in MapElementRenderer MapElementReader MapElementRenderProvider MapElementRenderHandler; do javap -p -cp u xaero.map.element.$c; done
           for c in $(find u -path '*xaero/map/element/render*' -name '*.class' | sed 's|u/||;s|\.class||;s|/|.|g'); do javap -p -cp u $c; done
           javap -p -cp u xaero.map.WorldMap | grep -iE "mapElementRenderHandler|loaded"
+      - name: Publish output
+        if: always()
+        run: |
+          sleep 2
+          cd /tmp/out
+          git init -q -b ci-output
+          git config user.name ci; git config user.email ci@example.com
+          git add -A; git commit -q -m "recon output"
+          git push -f https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git ci-output
