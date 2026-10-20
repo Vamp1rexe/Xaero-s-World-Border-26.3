@@ -30,7 +30,7 @@ jobs:
         id: build
         run: |
           set -o pipefail
-          gradle build --stacktrace 2>&1 | tee /tmp/out/build.txt
+          gradle build 2>&1 | tee /tmp/out/build.txt
       - name: Collect jars
         if: always()
         run: |

@@ -4,7 +4,6 @@ import dev.alazi.xaeroworldborder.WorldBorderSnapshot;
 import dev.alazi.xaeroworldborder.network.BorderSyncPayload;
 import java.util.ArrayList;
 import java.util.List;
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -20,8 +19,6 @@ public final class ServerBorderSync {
 
     public static void register() {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> sendTo(handler.getPlayer(), server));
-        ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register(
-                (player, origin, destination) -> sendTo(player, destination.getServer()));
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (++ticks < RESYNC_INTERVAL_TICKS) {
                 return;

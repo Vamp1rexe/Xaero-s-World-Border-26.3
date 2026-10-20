@@ -14,7 +14,7 @@ public final class ClientEntrypoint implements ClientModInitializer {
     private static Object registeredOn;
 
     @Override
-    public void onInitialize() {
+    public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(BorderSyncPayload.TYPE,
                 (payload, context) -> context.client().execute(() -> ClientWorldBorderCache.apply(payload)));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientWorldBorderCache.clear());
